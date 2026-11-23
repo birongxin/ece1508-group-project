@@ -115,7 +115,7 @@ class BikeShareEnv(gym.Env):
             [self.current_truck_load / self.truck_capacity],
             [np.sin(2 * np.pi * (self.current_time_hours % 24) / 24)],
             [np.cos(2 * np.pi * (self.current_time_hours % 24) / 24)],
-            [self.current_time_hours / (self.episode_hours * 24)]]).astype(np.float32)
+            [self.current_time_hours / (self.episode_hours)]]).astype(np.float32) # change the scaling problem 
     
     @staticmethod
     def _scale(x): 
@@ -252,17 +252,21 @@ class BikeShareEnv(gym.Env):
         reward += buffer_reward
         completed += buffer_completed
         unmet += buffer_unmet
-        
+
         # Calculate step penalties
         reward -= (0.025 * travel_distance_km) + (0.0005 * travel_minutes)
-        reward -= 0.01 * abs(requested_transfer - actual_transfer_amount)
+        reward -= 0.01 * abs(abs(requested_transfer) - abs(actual_transfer_amount))
+        # alpha = 0.1   
+        # beta = 0.05   
+        # eta = 0.01    
+        # reward = (-alpha*unmet - beta*travel_minutes - eta*abs(abs(requested_transfer) - abs(actual_transfer_amount)))
         self.total_completed_trips += completed
         self.total_unmet_requests += unmet
         # Track the time stations spend completely empty or completely full
         self.station_imbalance_minutes += (self.decision_minutes / 60) * (
             (self.station_inventories == 0) | (self.station_inventories >= self.cap)
         )
-        is_terminated = self.current_time_hours >= self.episode_hours
+        is_terminated = bool(self.current_time_hours >= self.episode_hours) 
         step_info = {
             "completed_trips": completed,
             "unmet_requests": unmet,
@@ -302,7 +306,7 @@ if __name__ == "__main__":
         step_count += 1
         station_id = env.station_ids[action[0]]
         
-        if step_count <= 10:
+        if step_count <= 50:   # changed to a larger step to find more "unmet_requests"
             print(f"[{current_timestamp}] Sample Action -> Station Index Picked: {action[0]} (Station ID: {station_id}), Transfer Level Code: {action[1]}")
             print(f"Step Info Dictionary Payload -> {step_info}, reward: {reward}")
         if np.isnan(next_obs).any() or np.isinf(next_obs).any():

@@ -124,7 +124,10 @@ def prepare(start="2025-07-01", end="2025-10-01", n_stations=50):
     st.to_csv(PROC / "stations.csv", index=False)
     
     od = trips.groupby(["weekday", "hour", "start_station_id", "end_station_id"]).size().rename("count").reset_index()
-    days = trips.assign(day=trips.assign(day=trips.start_time.dt.date).drop_duplicates("day").groupby(trips.assign(day=trips.start_time.dt.date).drop_duplicates("day").start_time.dt.dayofweek).size())
+    #days = trips.assign(day=trips.assign(day=trips.start_time.dt.date).drop_duplicates("day").groupby(trips.assign(day=trips.start_time.dt.date).drop_duplicates("day").start_time.dt.dayofweek).size())
+    # Count unique dates for each weekday
+    unique_dates = trips["start_time"].dt.normalize().drop_duplicates()
+    days = unique_dates.dt.dayofweek.value_counts().sort_index()
     od["count"] = od.apply(lambda r: r["count"] / max(int(days.get(int(r["weekday"]), 1)), 1), axis=1)
     od.to_parquet(PROC / "od_demand.parquet", index=False)
     
